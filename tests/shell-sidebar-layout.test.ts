@@ -353,6 +353,48 @@ test("rail places opt-in extension sections by order among the built-in sections
 	assert.deepEqual(rail(f).render(50).map((line) => line.trim()), ["✿ Gentle Shell ✿", "", "files", "", "todo", "", "between", "", "agents", "", "Status", "", "late"]);
 });
 
+test("rail pins a bottom-anchored extension section to the bottom of the viewport", (t) => {
+	const f = fixture();
+	const parts = sidebarState(f.tui).parts;
+	parts.set("files", { render: () => ["files"], invalidate() {}, section: { order: 50 } });
+	parts.set("mascot", { render: () => ["mascot-1", "mascot-2", ""], invalidate() {}, section: { order: 10, anchor: "bottom" } });
+	t.after(installSidebar(f.tui, theme));
+	const scroll = rail(f);
+	scroll.updateLayout(5, 12, () => {});
+	const lines = scroll.render(50).map((line) => line.trim());
+	assert.deepEqual(lines.slice(0, 5), ["✿ Gentle Shell ✿", "", "files", "", "Status"]);
+	assert.deepEqual(lines.slice(-2), ["mascot-1", "mascot-2"]);
+	assert.equal(lines.length, 12);
+	assert.ok(lines.slice(5, 10).every((line) => line === ""));
+});
+
+test("rail stacks a bottom-anchored section after the content when the viewport is full", (t) => {
+	const f = fixture();
+	const parts = sidebarState(f.tui).parts;
+	parts.set("files", { render: () => Array.from({ length: 20 }, (_, i) => `file-${i}`), invalidate() {}, section: { order: 50 } });
+	parts.set("mascot", { render: () => ["mascot"], invalidate() {}, section: { order: 10, anchor: "bottom" } });
+	t.after(installSidebar(f.tui, theme));
+	const scroll = rail(f);
+	scroll.updateLayout(30, 8, () => {});
+	const lines = rail(f).render(50).map((line) => line.trim());
+	const content = lines.filter((line) => line !== "");
+	assert.equal(content.at(-1), "mascot");
+	assert.equal(content.at(-2), "Status");
+});
+
+test("a bottom-anchored section never receives rail mouse events", (t) => {
+	const f = fixture();
+	const events: unknown[] = [];
+	sidebarState(f.tui).parts.set("mascot", { render: () => ["mascot"], invalidate() {}, handleMouse: (event: unknown) => { events.push(event); return { handled: true }; }, section: { order: 10, anchor: "bottom" } });
+	t.after(installSidebar(f.tui, theme));
+	const scroll = rail(f);
+	scroll.updateLayout(3, 6, () => {});
+	const lines = scroll.render(50);
+	const y = lines.findIndex((line) => line.includes("mascot"));
+	scroll.handleMouse({ type: "press", button: "left", x: 4, y, screenX: 4, screenY: y, width: 50, height: 6 } as TuiMouseEvent);
+	assert.deepEqual(events, []);
+});
+
 test("rail section keys keep the built-in order and ignore reserved or non-opt-in parts", () => {
 	const part = { render: () => [] as string[], invalidate() {} };
 	const parts = new Map<string, { render(): string[]; invalidate(): void; section?: { order: number } }>([["changes", part], ["header", { ...part, section: { order: 1 } }], ["statusbar", { ...part, section: { order: 1 } }], ["footer", part], ["agents", part], ["jobs", part], ["todo", part]]);

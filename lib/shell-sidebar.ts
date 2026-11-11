@@ -66,8 +66,12 @@ export interface SidebarRail extends Component {
 	 * Opt-in for a part another extension registers in `parts`: the rail and the
 	 * /gentle:panel sheet show it as a section placed by `order` among the
 	 * built-in sections (BUILTIN_SECTION_ORDER). Parts without it stay hidden.
+	 * `anchor: "bottom"` pins the section to the bottom of the rail viewport
+	 * (after the content when the rail overflows). An anchored section is
+	 * decorative: it gets no rail mouse events. The /gentle:panel sheet
+	 * ignores the anchor and places it by `order`.
 	 */
-	section?: { order: number };
+	section?: { order: number; anchor?: "bottom" };
 }
 
 /** Rail position of the built-in sections; extension sections sort among them by `section.order`. */

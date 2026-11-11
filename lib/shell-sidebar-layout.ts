@@ -83,6 +83,8 @@ type PreparedRail = {
 	contentWidth: number;
 	active: boolean;
 	lines: string[];
+	/** Rows of bottom-anchored sections; they carry no hits. */
+	bottomLines: string[];
 	hits: RailHit[];
 	// The header row is a full-width sibling above the hstack, not a rail
 	// section: it never enters `lines`/`hits`, and an empty/blank result
@@ -165,6 +167,8 @@ export function installSidebar(tui: TUI, theme: ShellBarTheme, placement: () => 
 	let stopped = false;
 	let failed = false;
 	let railLines: string[] = [];
+	// Rows of bottom-anchored sections, painted below the gap that fills the viewport.
+	let bottomLines: string[] = [];
 	let fillRow = "";
 	let headerLines: string[] = [];
 	let statusLines: string[] = [];
@@ -194,7 +198,8 @@ export function installSidebar(tui: TUI, theme: ShellBarTheme, placement: () => 
 	// not content, so they never add scroll range or hit targets.
 	const rail: Component = {
 		render: () => {
-			const room = scroll.viewportHeight - railLines.length;
+			const room = scroll.viewportHeight - railLines.length - bottomLines.length;
+			if (bottomLines.length) return [...railLines, ...Array.from({ length: Math.max(room, 1) }, () => fillRow), ...bottomLines];
 			return fillRow && room > 0 ? [...railLines, ...Array.from({ length: room }, () => fillRow)] : railLines;
 		},
 		invalidate() {
@@ -320,6 +325,7 @@ export function installSidebar(tui: TUI, theme: ShellBarTheme, placement: () => 
 			prepared.digests.length === digests.length && prepared.digests.every((digest, index) => digest === digests[index]);
 		if (unchanged) {
 			railLines = prepared.lines;
+			bottomLines = prepared.bottomLines;
 			statusLines = prepared.statusLines;
 			fillRow = prepared.fillRow;
 			state.active = prepared.active;
@@ -364,6 +370,8 @@ export function installSidebar(tui: TUI, theme: ShellBarTheme, placement: () => 
 				sectionCache.set(key, { component, digest, revision: cache.revision, contentWidth, renderWidth, cardStyle: style, theme, themeSignature: signature, lines });
 				return { key, component, lines };
 			}).filter((section) => section.component !== undefined && section.lines.length > 0) as Array<{ key: string; component: Component; lines: string[] }>;
+			const anchored = sections.filter((section) => (section.component as SidebarRail).section?.anchor === "bottom");
+			for (const section of anchored) sections.splice(sections.indexOf(section), 1);
 			// The header carries the brand once it is active; the banner is the
 			// rail's fallback identity when no header is wired up.
 			const branding = headerActive ? [] : renderSidebarBanner(theme, contentWidth - RAIL_PADDING * 2);
@@ -417,13 +425,15 @@ export function installSidebar(tui: TUI, theme: ShellBarTheme, placement: () => 
 				fillRow = panel ? paint(" ".repeat(contentWidth)) : "";
 				hits.push({ key: section.key, component: section.component, startY, height: section.lines.length, width: renderWidth, x: RAIL_PADDING, row: 0, frameWidth: renderWidth, frameHeight: section.lines.length });
 			}
+			// Anchored sections keep no hits: their screen row depends on the viewport.
+			bottomLines = anchored.flatMap((section) => section.lines.map((line) => truncateToWidth(" ".repeat(RAIL_PADDING) + line + " ".repeat(RAIL_PADDING), contentWidth, "")));
 			// Height is owned by the native ScrollView, never by the transcript.
 			const active = railLines.length > 0 && railLines.every((line) => visibleWidth(line) <= contentWidth);
 			headerLines = headerActive && headerPlacement() !== "below-input" ? preparedHeaderLines : [];
 			const statusPart = state.parts.get("statusbar");
 			const preparedStatusLines = active && statusPart ? [...(statusPart.render(Math.max(0, width)) ?? [])] : [];
 			statusLines = preparedStatusLines.some((line) => line.trim() !== "") ? preparedStatusLines : [];
-			prepared = { revision: cache.revision, width, mode: host.mode, headerPlacement: headerPlacement(), density: density(), surface: chromeSurface(), cardStyle: style, root, theme, themeSignature: signature, parts, digests, contentWidth, active, lines: railLines, hits, headerLines, statusLines, fillRow, headerActive: headerLines.length > 0 };
+			prepared = { revision: cache.revision, width, mode: host.mode, headerPlacement: headerPlacement(), density: density(), surface: chromeSurface(), cardStyle: style, root, theme, themeSignature: signature, parts, digests, contentWidth, active, lines: railLines, bottomLines, hits, headerLines, statusLines, fillRow, headerActive: headerLines.length > 0 };
 			state.active = active;
 			return active;
 		} catch {

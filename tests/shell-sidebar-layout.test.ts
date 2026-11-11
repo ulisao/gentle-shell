@@ -3,7 +3,7 @@ import test from "node:test";
 import { CURSOR_MARKER, Container, ScrollView, VStack, visibleWidth, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { getScrollViewsAt, renderLayoutFrame, type LayoutBox } from "@earendil-works/pi-tui/dist/layout.js";
 import { installSidebar, invalidateSidebar, narrowStatusOwner } from "../lib/shell-sidebar-layout.ts";
-import { setSidebarHover, sidebarHeader, sidebarPart, sidebarState, sidebarStatusBar } from "../lib/shell-sidebar.ts";
+import { railSectionKeys, setSidebarHover, sidebarHeader, sidebarPart, sidebarState, sidebarStatusBar } from "../lib/shell-sidebar.ts";
 import { renderShellSidebarBar, renderShellStatusBar } from "../lib/shell-bar.ts";
 import { chromeSurface, setChromeSurface } from "../lib/shell-panel.ts";
 import { renderTodoCard, type TodoState } from "../lib/shell-todo.ts";
@@ -351,6 +351,12 @@ test("rail places opt-in extension sections by order among the built-in sections
 	parts.set("broken", { render: () => ["broken"], invalidate() {}, section: { order: Number.NaN } });
 	t.after(installSidebar(f.tui, theme));
 	assert.deepEqual(rail(f).render(50).map((line) => line.trim()), ["✿ Gentle Shell ✿", "", "files", "", "todo", "", "between", "", "agents", "", "Status", "", "late"]);
+});
+
+test("rail section keys keep the built-in order and ignore reserved or non-opt-in parts", () => {
+	const part = { render: () => [] as string[], invalidate() {} };
+	const parts = new Map<string, { render(): string[]; invalidate(): void; section?: { order: number } }>([["changes", part], ["header", { ...part, section: { order: 1 } }], ["statusbar", { ...part, section: { order: 1 } }], ["footer", part], ["agents", part], ["jobs", part], ["todo", part]]);
+	assert.deepEqual(railSectionKeys(parts), ["todo", "jobs", "agents", "footer"]);
 });
 
 test("rail drops an extension section once its part is removed", (t) => {

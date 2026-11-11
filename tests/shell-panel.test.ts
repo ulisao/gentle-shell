@@ -259,6 +259,17 @@ test("the panel sheet stacks the rail sections under a title row and scrolls wit
 	assert.deepEqual(end.slice(1), [" ▾ AGENTS", "", " ▾ CHANGES", "   clean"], "the last page shows the last rows without a more row");
 });
 
+test("the panel sheet shows opt-in extension sections in rail order", () => {
+	const parts = new Map<string, { render(width: number): string[]; invalidate(): void; section?: { order: number } }>([
+		["footer", { render: (width: number) => ["▾ CHANGES".padEnd(width)], invalidate() {} }],
+		["files", { render: (width: number) => ["▾ FILES".padEnd(width)], invalidate() {}, section: { order: 50 } }],
+		["todo", { render: (width: number) => ["▾ TODOS".padEnd(width)], invalidate() {} }],
+		["plain", { render: (width: number) => ["▾ PLAIN".padEnd(width)], invalidate() {} }],
+	]);
+	const rows = renderPanelSheet(parts as never, plain, 30, { rows: 8, scrollTop: 0 }).lines.map((line) => stripAnsi(line).trimEnd());
+	assert.deepEqual(rows.slice(1, 7), ["", " ▾ FILES", "", " ▾ TODOS", "", " ▾ CHANGES"]);
+});
+
 test("the mobile sheet wraps and scrolls a long Integrations status", () => {
 	const model = { ...chromeModel, permission: undefined, integrations: ["mobile-integration-with-a-long-name (local)", "MCP connected"] };
 	const visibility = { changes: false, rdd: true, agents: true, todo: true, usageCost: true, modelDetails: true, contextWarning: true, stats: false };

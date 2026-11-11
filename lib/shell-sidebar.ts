@@ -62,6 +62,33 @@ export interface SidebarRail extends Component {
 	alert?(width: number): string[];
 	/** What this section's work spent (the Agents section: started subagents), for the Stats section. */
 	spend?(): { runs: number; tokens: number; cost: number } | undefined;
+	/**
+	 * Opt-in for a part another extension registers in `parts`: the rail and the
+	 * /gentle:panel sheet show it as a section placed by `order` among the
+	 * built-in sections (BUILTIN_SECTION_ORDER). Parts without it stay hidden.
+	 */
+	section?: { order: number };
+}
+
+/** Rail position of the built-in sections; extension sections sort among them by `section.order`. */
+export const BUILTIN_SECTION_ORDER: Readonly<Record<string, number>> = Object.freeze({ todo: 100, jobs: 200, agents: 300, footer: 400 });
+const RESERVED_PART_KEYS = new Set(["header", "statusbar"]);
+
+/**
+ * The rail's section keys in display order: every built-in section, plus each
+ * part that opts in with a finite `section.order`. Ties keep built-ins first,
+ * then sort by key so the order never depends on registration timing.
+ */
+export function railSectionKeys(parts: ReadonlyMap<string, { section?: { order: number } }>): string[] {
+	const entries = Object.entries(BUILTIN_SECTION_ORDER).map(([key, order]) => ({ key, order, builtin: true }));
+	for (const [key, part] of parts) {
+		const order = part.section?.order;
+		if (key in BUILTIN_SECTION_ORDER || RESERVED_PART_KEYS.has(key) || typeof order !== "number" || !Number.isFinite(order)) continue;
+		entries.push({ key, order, builtin: false });
+	}
+	return entries
+		.sort((a, b) => a.order - b.order || Number(b.builtin) - Number(a.builtin) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+		.map(({ key }) => key);
 }
 export function sidebarState(tui: TUI): SidebarState {
 	const terminal = tui.terminal as unknown as Record<symbol, SidebarState>;

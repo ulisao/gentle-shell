@@ -1,5 +1,5 @@
 import { Container, ScrollView, VStack, truncateToWidth, visibleWidth, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
-import { setSidebarHover, sidebarState, type SidebarRail } from "./shell-sidebar.ts";
+import { railSectionKeys, setSidebarHover, sidebarState, type SidebarRail } from "./shell-sidebar.ts";
 import type { ShellBarTheme } from "./shell-bar.ts";
 import { CARD_STYLE, CARD_TONE, cardBottom, cardLine, cardStyle, cardTop, floatRows, paintSurfaceRow, panelInnerWidth, type CardStyle } from "./shell-card.ts";
 import { chromeSurface, PANEL_ROW_INDENT, panelSurfaceOpener, sectionGap } from "./shell-panel.ts";
@@ -340,8 +340,11 @@ export function installSidebar(tui: TUI, theme: ShellBarTheme, placement: () => 
 			const cardGap = () => (carded && style === CARD_STYLE.FLOAT) || sectionGap(density());
 			// A carded section renders one indent wider; its body rows drop that indent inside the card.
 			const renderWidth = carded ? panelInnerWidth(theme, contentWidth) + PANEL_ROW_INDENT : contentWidth - RAIL_PADDING * 2;
-			// Live work first, then the session Status sections (design/shell-rework/02-proposal.html).
-			const sections = ["todo", "jobs", "agents", "footer"].filter((key) => key !== "todo" || state.visibility?.todo !== false).map((key) => {
+			// Live work first, then the session Status sections (design/shell-rework/02-proposal.html);
+			// opt-in extension sections sort among them by their `section.order`.
+			const sectionKeys = railSectionKeys(state.parts);
+			for (const key of sectionCache.keys()) if (!sectionKeys.includes(key)) sectionCache.delete(key);
+			const sections = sectionKeys.filter((key) => key !== "todo" || state.visibility?.todo !== false).map((key) => {
 				const component = state.parts.get(key);
 				if (!component) {
 					sectionCache.delete(key);

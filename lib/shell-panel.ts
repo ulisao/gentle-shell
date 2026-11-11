@@ -1,6 +1,7 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { paintSurfaceRow, surfaceOpener, type CardTheme } from "./shell-card.ts";
 import { HOVER_ROLE, paintHoverable } from "./shell-hover.ts";
+import { railSectionKeys } from "./shell-sidebar.ts";
 import type { ChromeSurface } from "./visual-customization-policy.ts";
 
 // Fullscreen rail sections drawn as one IDE-like panel (design/shell-rework/02-proposal.html):
@@ -122,7 +123,6 @@ export interface PanelSheet {
 	maxScroll: number;
 }
 
-const SHEET_ORDER = ["todo", "jobs", "agents", "footer"] as const;
 
 /**
  * The rail's sections as a full-width sheet (/gentle:panel, mobile): a fixed
@@ -137,12 +137,12 @@ export function panelSheetBackHit(width: number, x: number, y: number): boolean 
 	return y === 0 && x >= end - SHEET_BACK.length - 1 && x < end + 1;
 }
 
-export function renderPanelSheet(parts: ReadonlyMap<string, { render(width: number): string[] }>, theme: PanelTheme, width: number, view: { rows: number; scrollTop: number; backHovered?: boolean }): PanelSheet {
+export function renderPanelSheet(parts: ReadonlyMap<string, { render(width: number): string[]; section?: { order: number } }>, theme: PanelTheme, width: number, view: { rows: number; scrollTop: number; backHovered?: boolean }): PanelSheet {
 	const target = Math.max(0, Math.floor(width));
 	const inner = Math.max(0, target - 2);
 	const title = ` ${fitPanelLine(`${theme.fg("accent", "✿")} ${theme.fg("text", theme.bold ? theme.bold("Panel") : "Panel")}`, paintHoverable(theme, SHEET_BACK, view.backHovered ?? false, "muted"), inner)} `;
 	const content: string[] = [];
-	for (const key of SHEET_ORDER) {
+	for (const key of railSectionKeys(parts)) {
 		const lines = [...(parts.get(key)?.render(inner) ?? [])];
 		while (lines.length && lines[lines.length - 1]!.trim() === "") lines.pop();
 		if (lines.length === 0) continue;

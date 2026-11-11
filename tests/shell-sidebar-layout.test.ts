@@ -340,6 +340,30 @@ test("rail orders live work first, then Status, without standalone changes", (t)
 	assert.deepEqual(rail(f).render(50).map((line) => line.trim()), ["✿ Gentle Shell ✿", "", "todo", "", "agents", "", "Status"]);
 });
 
+test("rail places opt-in extension sections by order among the built-in sections", (t) => {
+	const f = fixture();
+	for (const key of ["todo", "agents"]) sidebarPart(f.tui, key, { render: () => [key], invalidate() {} });
+	const parts = sidebarState(f.tui).parts;
+	parts.set("late", { render: () => ["late"], invalidate() {}, section: { order: 500 } });
+	parts.set("files", { render: () => ["files"], invalidate() {}, section: { order: 50 } });
+	parts.set("between", { render: () => ["between"], invalidate() {}, section: { order: 250 } });
+	parts.set("plain", { render: () => ["plain"], invalidate() {} });
+	parts.set("broken", { render: () => ["broken"], invalidate() {}, section: { order: Number.NaN } });
+	t.after(installSidebar(f.tui, theme));
+	assert.deepEqual(rail(f).render(50).map((line) => line.trim()), ["✿ Gentle Shell ✿", "", "files", "", "todo", "", "between", "", "agents", "", "Status", "", "late"]);
+});
+
+test("rail drops an extension section once its part is removed", (t) => {
+	const f = fixture();
+	const parts = sidebarState(f.tui).parts;
+	parts.set("files", { render: () => ["files"], invalidate() {}, section: { order: 50 } });
+	t.after(installSidebar(f.tui, theme));
+	assert.match(rail(f).render(50).join("\n"), /files/);
+	parts.delete("files");
+	invalidateSidebar(f.tui);
+	assert.deepEqual(rail(f).render(50).map((line) => line.trim()), ["✿ Gentle Shell ✿", "", "Status"]);
+});
+
 test("branding belongs to scroll content before Status, never transcript or narrow bottom", (t) => {
 	const f = fixture();
 	t.after(installSidebar(f.tui, theme));
